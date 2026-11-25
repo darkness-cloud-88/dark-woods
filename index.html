@@ -17,6 +17,11 @@ button.alt{background:var(--moss);border-color:#3b5a3c}
 button:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 input{width:6em;text-align:center;letter-spacing:.2em;text-transform:uppercase}
 .row{display:flex;gap:8px}
+#menu{overflow:auto}
+#rot{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg);z-index:9;text-align:center;font-size:1.3rem;padding:24px}
+#rot b{font-size:3.2rem}
+@media (orientation:portrait){#rot{display:flex}}
+@media (orientation:landscape) and (max-height:520px){#menu{gap:8px;padding:10px 24px}h1{font-size:2rem}p{font-size:.95rem;line-height:1.4}button,input{padding:8px 18px}}
 #hud{position:fixed;top:max(10px,env(safe-area-inset-top));left:0;right:0;text-align:center;pointer-events:none;text-shadow:0 0 6px #000;font-size:1.05rem;line-height:1.6;z-index:2}
 </style>
 </head>
@@ -26,9 +31,10 @@ input{width:6em;text-align:center;letter-spacing:.2em;text-transform:uppercase}
 <div id="menu">
   <h1>الغابة المظلمة</h1>
   <p>اجمعوا ٥ مفاتيح معًا، ثم اهربوا إلى البوابة في الزاوية اليمنى السفلى قبل أن يمسك بكم الوحش. كل مفتاح يجعله أسرع.</p>
-  <button onclick="hostGame()">إنشاء غرفة</button>
-  <div class="row"><input id="ci" maxlength="4" placeholder="الكود" aria-label="كود الغرفة"><button class="alt" onclick="joinGame()">انضمام</button></div>
+  <button onclick="goLandscape();hostGame()">إنشاء غرفة</button>
+  <div class="row"><input id="ci" maxlength="4" placeholder="الكود" aria-label="كود الغرفة"><button class="alt" onclick="goLandscape();joinGame()">انضمام</button></div>
 </div>
+<div id="rot"><b>📱↻</b>أدر جوالك بالعرض للعب</div>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 const $=id=>document.getElementById(id),cv=$('c'),g=cv.getContext('2d'),dk=document.createElement('canvas'),d=dk.getContext('2d');
@@ -41,6 +47,11 @@ for(let i=0;i<120;i++){const x=rnd()*W,y=rnd()*W,r=16+rnd()*14;
 
 let me='h',host=false,peer,conns=[],P={},M={x:1400,y:300},st='play',room='',last=0,net=0,joy={x:0,y:0},kb={};
 const addP=id=>P[id]={x:110+Math.random()*30,y:110+Math.random()*30,out:false};
+
+function goLandscape(){ // fullscreen + landscape lock (Android Chrome); other browsers fall back to the rotate message
+  try{const e=document.documentElement,f=e.requestFullscreen||e.webkitRequestFullscreen;
+    if(f)Promise.resolve(f.call(e)).then(()=>screen.orientation.lock('landscape')).catch(()=>{})}catch(x){}
+}
 
 function start(code){room=code;$('menu').style.display='none';last=performance.now();requestAnimationFrame(loop)}
 
