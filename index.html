@@ -19,6 +19,10 @@ input{width:6em;text-align:center;letter-spacing:.2em;text-transform:uppercase}
 .row{display:flex;gap:8px}
 #menu{overflow:auto}
 #rot{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg);z-index:9;text-align:center;font-size:1.3rem;padding:24px}
+#fb{position:fixed;right:max(24px,env(safe-area-inset-right));bottom:28px;width:78px;height:78px;border-radius:50%;z-index:3;font-size:2rem;padding:0;background:rgba(179,38,30,.65)}
+#mm{position:fixed;top:64px;left:10px;width:120px;height:120px;border:1px solid #4a2a26;z-index:3;pointer-events:none}
+#zb{position:fixed;top:64px;left:138px;z-index:3;display:flex;flex-direction:column;gap:6px}
+#zb button{padding:0;width:38px;height:38px;font-size:1.3rem;background:#1a0f0e;opacity:.85}
 #rot b{font-size:3.2rem}
 @media (orientation:portrait){#rot{display:flex}}
 @media (orientation:landscape) and (max-height:520px){#menu{gap:8px;padding:10px 24px}h1{font-size:2rem}p{font-size:.95rem;line-height:1.4}button,input{padding:8px 18px}}
@@ -30,10 +34,11 @@ input{width:6em;text-align:center;letter-spacing:.2em;text-transform:uppercase}
 <div id="hud"></div>
 <div id="menu">
   <h1>الغابة المظلمة</h1>
-  <p>اجمعوا ٥ مفاتيح معًا، ثم اهربوا إلى البوابة في الزاوية اليمنى السفلى قبل أن يمسك بكم الوحش. كل مفتاح يجعله أسرع.</p>
+  <p>اجمعوا ٥ مفاتيح 🔑 والتقطوا الأسلحة 🔫، ثم واجهوا الوحش معًا في معركة من ٣ مراحل. أطلقوا عليه حتى يسقط.</p>
   <button onclick="goLandscape();hostGame()">إنشاء غرفة</button>
   <div class="row"><input id="ci" maxlength="4" placeholder="الكود" aria-label="كود الغرفة"><button class="alt" onclick="goLandscape();joinGame()">انضمام</button></div>
 </div>
+<canvas id="mm" width="120" height="120"></canvas><div id="zb"><button onclick="mz=Math.min(4,mz*2)">+</button><button onclick="mz=Math.max(1,mz/2)">−</button></div><button id="fb" aria-label="إطلاق">🔫</button>
 <div id="rot"><b>📱↻</b>أدر جوالك بالعرض للعب</div>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
@@ -46,9 +51,50 @@ for(let i=0;i<120;i++){const x=rnd()*W,y=rnd()*W,r=16+rnd()*14;
   if(Math.hypot(x-120,y-120)>100&&Math.hypot(x-gate.x,y-gate.y)>100&&keys.every(k=>Math.hypot(x-k.x,y-k.y)>r+30))trees.push({x,y,r})}
 
 let me='h',host=false,peer,conns=[],P={},M={x:1400,y:300},st='play',room='',last=0,net=0,joy={x:0,y:0},kb={};
-const addP=id=>P[id]={x:110+Math.random()*30,y:110+Math.random()*30,out:false};
+const addP=id=>P[id]={x:110+Math.random()*30,y:110+Math.random()*30,out:false,a:0,am:0};
 
-function goLandscape(){ // fullscreen + landscape lock (Android Chrome); other browsers fall back to the rotate message
+
+// ---------- audio (synthesized, no files) ----------
+let ac,mg;
+function initAudio(){if(ac)return;ac=new(window.AudioContext||window.webkitAudioContext)();mg=ac.createGain();mg.gain.value=.8;mg.connect(ac.destination);
+  const lp=ac.createBiquadFilter();lp.type='lowpass';lp.frequency.value=220;lp.connect(mg);
+  [55,55.7,82.4].forEach(f=>{const o=ac.createOscillator(),v=ac.createGain();o.type='sawtooth';o.frequency.value=f;v.gain.value=.05;o.connect(v);v.connect(lp);o.start()});
+  const l=ac.createOscillator(),lg=ac.createGain();l.frequency.value=.08;lg.gain.value=120;l.connect(lg);lg.connect(lp.frequency);l.start();
+  setInterval(()=>tone(700+Math.random()*500,3,'sine',.03,380),9000)}
+function tone(f,d,ty='sine',v=.3,f2){if(!ac)return;const T=ac.currentTime,o=ac.createOscillator(),n=ac.createGain();o.type=ty;o.frequency.setValueAtTime(f,T);if(f2)o.frequency.exponentialRampToValueAtTime(f2,T+d);n.gain.setValueAtTime(v,T);n.gain.exponentialRampToValueAtTime(.001,T+d);o.connect(n);n.connect(mg);o.start();o.stop(T+d)}
+function noise(d,v,f){if(!ac)return;const T=ac.currentTime,b=ac.createBuffer(1,ac.sampleRate*d,ac.sampleRate),a=b.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=Math.random()*2-1;const s=ac.createBufferSource(),fl=ac.createBiquadFilter(),n=ac.createGain();s.buffer=b;fl.type='lowpass';fl.frequency.value=f;n.gain.setValueAtTime(v,T);n.gain.exponentialRampToValueAtTime(.001,T+d);s.connect(fl);fl.connect(n);n.connect(mg);s.start()}
+const step=()=>noise(.12,.25,600),thud=v=>{tone(60,.3,'sine',.6*v,30);noise(.15,.4*v,200)},beat=v=>{tone(55,.15,'sine',.7*v,35);setTimeout(()=>tone(50,.15,'sine',.5*v,32),160)},shot=()=>{noise(.2,.8,3000);tone(200,.15,'square',.2,50)};
+function scare(){js=.7;noise(.9,1,6000);tone(900,.8,'sawtooth',.5,300);tone(1400,.8,'square',.3,500)}
+
+// ---------- art ----------
+const ts=document.createElement('canvas');ts.width=ts.height=64;
+{const c=ts.getContext('2d');c.fillStyle='#1a1008';c.beginPath();c.arc(32,32,6,0,7);c.fill();
+ for(let i=0;i<7;i++){const a=i*.9,x=32+Math.cos(a)*13,y=32+Math.sin(a)*13,r=c.createRadialGradient(x,y,2,x,y,17);r.addColorStop(0,'#1f3a1f');r.addColorStop(1,'rgba(8,20,8,0)');c.fillStyle=r;c.beginPath();c.arc(x,y,17,0,7);c.fill()}}
+const gt=document.createElement('canvas');gt.width=gt.height=128;let gp;
+{const c=gt.getContext('2d');c.fillStyle='#0c140c';c.fillRect(0,0,128,128);
+ for(let i=0;i<260;i++){c.strokeStyle=`rgba(${20+Math.random()*30|0},${40+Math.random()*40|0},20,.5)`;const x=Math.random()*128,y=Math.random()*128;c.beginPath();c.moveTo(x,y);c.lineTo(x+Math.random()*4-2,y-3-Math.random()*5);c.stroke()}
+ for(let i=0;i<30;i++){c.fillStyle='rgba(40,30,20,.5)';c.fillRect(Math.random()*128,Math.random()*128,3,2)}
+ gp=g.createPattern(gt,'repeat')}
+function face(c,x,y,s,t){ // the monster: spiked head, flesh face, screaming mouth, dark hunched body
+  c.save();c.translate(x,y);c.scale(s,s);c.strokeStyle='#1a0d0d';c.lineWidth=1.2;
+  for(let i=0;i<14;i++){const a=i/14*6.28+.3,l=26+(i%3)*7;c.beginPath();c.moveTo(Math.cos(a)*14,Math.sin(a)*15-4);c.lineTo(Math.cos(a)*l,Math.sin(a)*l-4);c.stroke()}
+  c.fillStyle='#0b0708';c.beginPath();c.ellipse(0,26,18,22,0,0,7);c.fill();
+  const q=c.createRadialGradient(-4,-8,2,0,0,20);q.addColorStop(0,'#a33a33');q.addColorStop(1,'#4a1212');c.fillStyle=q;
+  c.beginPath();c.moveTo(-14,-12);c.quadraticCurveTo(-4,-22,14,-14);c.quadraticCurveTo(18,0,10,12);c.quadraticCurveTo(0,20,-10,12);c.quadraticCurveTo(-18,0,-14,-12);c.fill();
+  c.fillStyle='#fff';c.beginPath();c.arc(-6,-6,3.4,0,7);c.arc(5,-7,3.4,0,7);c.fill();
+  c.fillStyle='#000';c.beginPath();c.arc(-6,-6,1.4,0,7);c.arc(5,-7,1.4,0,7);c.fill();
+  c.beginPath();c.ellipse(0,5,6,5+Math.sin(t*9)*1.5,0,0,7);c.fill();c.restore()}
+function person(q,m){g.save();g.translate(q.x,q.y);g.rotate(q.a||0);g.fillStyle=q.out?'#3a2422':m?'#23415a':'#5a3a23';g.beginPath();g.ellipse(0,0,4,9,0,0,7);g.fill();g.fillStyle='#d8b898';g.beginPath();g.arc(1,0,4.2,0,7);g.fill();g.restore()}
+
+// ---------- state: weapons, boss, effects ----------
+let stun=0,crT=6,boss={on:false,hp:0,max:0,ph:1,dash:3,dl:0,bl:5},crates=[],js=0,cd=0,fcd=0,flash=0,stepT=0,mst=0,hb=0,wasOut=false,bs=false,fire=false,mz=1;
+for(let i=0;i<5;i++)crates.push({x:150+Math.random()*1300,y:150+Math.random()*1300});
+const fb=$('fb');fb.onpointerdown=()=>fire=true;fb.onpointerup=fb.onpointerleave=fb.onpointercancel=()=>fire=false;
+function shoot(id,a){const q=P[id];if(!q||q.out||q.am<1)return;q.am--;
+  const dx=M.x-q.x,dy=M.y-q.y,pr=dx*Math.cos(a)+dy*Math.sin(a),pe=Math.abs(-dx*Math.sin(a)+dy*Math.cos(a));
+  if(pr>0&&pr<300&&pe<(boss.on?28:18)){if(boss.on)boss.hp-=8;else stun=1.2}}
+
+function goLandscape(){initAudio(); // fullscreen + landscape lock (Android Chrome); other browsers fall back to the rotate message
   try{const e=document.documentElement,f=e.requestFullscreen||e.webkitRequestFullscreen;
     if(f)Promise.resolve(f.call(e)).then(()=>screen.orientation.lock('landscape')).catch(()=>{})}catch(x){}
 }
@@ -63,7 +109,7 @@ function hostGame(){
   peer.on('error',e=>{if(e.type=='unavailable-id'){peer.destroy();hostGame()}else alert('خطأ في الاتصال: '+e.type)});
   peer.on('connection',c=>{
     conns.push(c);addP(c.peer);
-    c.on('data',m=>{const q=P[c.peer];if(m.t=='p'&&q&&!q.out){q.x=m.x;q.y=m.y}});
+    c.on('data',m=>{const q=P[c.peer];if(!q||q.out)return;if(m.t=='p'){q.x=m.x;q.y=m.y;q.a=m.a}else if(m.t=='f')shoot(c.peer,m.a)});
     c.on('close',()=>{delete P[c.peer];conns=conns.filter(k=>k!=c)});
   });
 }
@@ -76,72 +122,96 @@ function joinGame(){
     c.on('open',()=>start(code));
     c.on('data',m=>{
       if(m.t!='s')return;
-      const o=P[me];P=m.P;if(o&&P[me]){P[me].x=o.x;P[me].y=o.y} // keep my own position
-      M=m.M;st=m.st;keys.forEach((k,i)=>k.got=m.k[i]);
+      const o=P[me];P=m.P;if(o&&P[me]){P[me].x=o.x;P[me].y=o.y;P[me].a=o.a} // keep my own position
+      M=m.M;st=m.st;crates=m.cr;boss=m.B;keys.forEach((k,i)=>k.got=m.k[i]);
     });
     c.on('close',()=>{alert('انقطع الاتصال بالغرفة');location.reload()});
   });
   peer.on('error',e=>alert('تعذر الانضمام. تأكد من الكود. ('+e.type+')'));
 }
 
-function sim(dt){ // host only: monster, keys, win/lose
+function sim(dt){ // host only
   if(st!='play')return;
-  const all=Object.values(P),alive=all.filter(q=>!q.out);
+  const alive=Object.values(P).filter(q=>!q.out);
   if(!alive.length){st='lose';return}
   const n=keys.filter(k=>k.got).length;let tg=null,bd=1e9;
+  if(n==KEYS&&!boss.on){boss.on=true;boss.max=boss.hp=110*alive.length+50}
   alive.forEach(q=>{
     const h=Math.hypot(q.x-M.x,q.y-M.y);if(h<bd){bd=h;tg=q}
     keys.forEach(k=>{if(!k.got&&Math.hypot(q.x-k.x,q.y-k.y)<26)k.got=true});
-    if(h<20)q.out=true;
-    if(n==KEYS&&Math.hypot(q.x-gate.x,q.y-gate.y)<40)st='win';
-  });
-  const sp=75+n*14;bd=bd||1;
-  M.x+=(tg.x-M.x)/bd*sp*dt;M.y+=(tg.y-M.y)/bd*sp*dt;
+    crates=crates.filter(c=>{if(Math.hypot(q.x-c.x,q.y-c.y)<22){q.am=Math.min(30,q.am+10);return false}return true});
+    if(h<(boss.on?26:20))q.out=true});
+  const ph=boss.hp>boss.max*.66?1:boss.hp>boss.max*.33?2:3;boss.ph=ph;
+  let sp=boss.on?[0,95,125,150][ph]:75+n*14;
+  if(stun>0){stun-=dt;sp*=.15}
+  if(boss.on&&ph>1){boss.dash-=dt;if(boss.dash<=0){boss.dash=4;boss.dl=.6}if(boss.dl>0){boss.dl-=dt;sp*=3}}
+  if(boss.on&&ph==3){boss.bl-=dt;if(boss.bl<=0){boss.bl=6;const a=Math.random()*6.28;M.x=clamp(tg.x+Math.cos(a)*170,20,W-20);M.y=clamp(tg.y+Math.sin(a)*170,20,W-20)}}
+  bd=bd||1;M.x+=(tg.x-M.x)/bd*sp*dt;M.y+=(tg.y-M.y)/bd*sp*dt;
+  if(boss.on&&boss.hp<=0)st='win';
+  crT-=dt;if(crT<=0&&crates.length<6){crT=8;crates.push({x:150+Math.random()*1300,y:150+Math.random()*1300})}
 }
 
 function update(dt){
   const p=P[me];if(!p)return;
+  let mv=false;
   if(st=='play'&&!p.out){
     const k=(...a)=>a.some(c=>kb[c]);
     let dx=joy.x+k('KeyD','ArrowRight')-k('KeyA','ArrowLeft'),dy=joy.y+k('KeyS','ArrowDown')-k('KeyW','ArrowUp');
     const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}
+    if(l>.15){mv=true;p.a=Math.atan2(dy,dx)}
     p.x=clamp(p.x+dx*130*dt,8,W-8);p.y=clamp(p.y+dy*130*dt,8,W-8);
     trees.forEach(t=>{const a=p.x-t.x,b=p.y-t.y,h=Math.hypot(a,b),m=t.r+8;if(h<m&&h>0){p.x=t.x+a/h*m;p.y=t.y+b/h*m}});
+    fcd-=dt;if((fire||kb.Space)&&fcd<=0&&p.am>0){fcd=.35;flash=.08;shot();if(host)shoot(me,p.a);else if(conns[0]&&conns[0].open)conns[0].send({t:'f',a:p.a})}
   }
+  if(mv){stepT-=dt;if(stepT<=0){stepT=.4;step()}}
+  const dist=Math.hypot(p.x-M.x,p.y-M.y);
+  mst-=dt;if(mst<=0&&dist<350&&st=='play'){mst=dist<150?.35:.6;thud(1-dist/350)}
+  hb-=dt;if(hb<=0&&dist<400&&st=='play'){hb=.3+dist/400*.9;beat(1-dist/400)}
+  cd-=dt;js-=dt;flash-=dt;
+  if(st=='play'&&!p.out&&dist<100&&cd<=0){scare();cd=30}
+  if(p.out&&!wasOut)scare();wasOut=p.out;
+  if(boss.on&&!bs){bs=true;scare()}
   if(host)sim(dt);
   net+=dt;
   if(net>.066){net=0;
-    if(host)conns.forEach(c=>c.open&&c.send({t:'s',P,M,k:keys.map(k=>k.got),st}));
-    else if(conns[0]&&conns[0].open)conns[0].send({t:'p',x:p.x,y:p.y});
+    if(host)conns.forEach(c=>c.open&&c.send({t:'s',P,M,k:keys.map(k=>k.got),st,cr:crates,B:boss}));
+    else if(conns[0]&&conns[0].open)conns[0].send({t:'p',x:p.x,y:p.y,a:p.a});
   }
 }
 
 let ow=0,oh=0;
 function draw(){
-  const w=innerWidth,h=innerHeight;
-  if(w!=ow||h!=oh){ow=cv.width=dk.width=w;oh=cv.height=dk.height=h}
-  const p=P[me]||{x:110,y:110},z=Math.min(w,h)/420,t=performance.now();
-  g.setTransform(1,0,0,1,0,0);g.fillStyle='#0a110b';g.fillRect(0,0,w,h);
-  g.setTransform(z,0,0,z,w/2-p.x*z,h/2-p.y*z);
-  g.fillStyle='#142416';trees.forEach(r=>{g.beginPath();g.arc(r.x,r.y,r.r,0,7);g.fill()});
-  g.fillStyle='#e0a93b';keys.forEach(k=>{if(!k.got)g.fillRect(k.x-5,k.y-5,10,10)});
-  g.fillStyle=keys.every(k=>k.got)?'#5fd48a':'#3a4a3c';g.fillRect(gate.x-25,gate.y-25,50,50);
-  for(const id in P){const q=P[id];g.fillStyle=q.out?'#5a3330':id==me?'#9fd3ff':'#f0a868';g.beginPath();g.arc(q.x,q.y,8,0,7);g.fill()}
-  g.fillStyle='#c4160e';g.beginPath();g.arc(M.x,M.y,15,0,7);g.fill();
-  g.fillStyle='#fff';g.fillRect(M.x-8,M.y-4,5,4);g.fillRect(M.x+3,M.y-4,5,4);
-  // darkness layer with light holes
-  d.setTransform(1,0,0,1,0,0);d.globalCompositeOperation='source-over';d.fillStyle='rgba(0,0,0,.97)';d.fillRect(0,0,w,h);
-  d.globalCompositeOperation='destination-out';
-  for(const id in P){const q=P[id];if(q.out)continue;
-    const r=(id==me?150:60)*z,x=w/2+(q.x-p.x)*z,y=h/2+(q.y-p.y)*z,gr=d.createRadialGradient(x,y,0,x,y,r);
-    gr.addColorStop(0,'#000');gr.addColorStop(1,'rgba(0,0,0,0)');d.fillStyle=gr;d.beginPath();d.arc(x,y,r,0,7);d.fill()}
+  const w=innerWidth,h=innerHeight;if(w!=ow||h!=oh){ow=cv.width=dk.width=w;oh=cv.height=dk.height=h}
+  const p=P[me]||{x:110,y:110,a:0,am:0},z=Math.min(w,h)/420,t=performance.now(),dist=Math.hypot(p.x-M.x,p.y-M.y),sh=st=='play'?Math.max(0,1-dist/250)*3:0;
+  g.setTransform(1,0,0,1,0,0);g.fillStyle='#050805';g.fillRect(0,0,w,h);
+  g.setTransform(z,0,0,z,w/2-p.x*z+(Math.random()-.5)*sh*z,h/2-p.y*z+(Math.random()-.5)*sh*z);
+  g.fillStyle=gp;g.fillRect(0,0,W,W);
+  trees.forEach(r=>g.drawImage(ts,r.x-r.r*1.7,r.y-r.r*1.7,r.r*3.4,r.r*3.4));
+  g.font='16px serif';crates.forEach(c=>g.fillText('🔫',c.x-8,c.y+6));keys.forEach(k=>{if(!k.got)g.fillText('🔑',k.x-8,k.y+6)});
+  for(const id in P)person(P[id],id==me);
+  face(g,M.x,M.y,boss.on?1.4+(boss.ph||1)*.25:.8,t/1000);
+  d.setTransform(1,0,0,1,0,0);d.globalCompositeOperation='source-over';d.fillStyle='rgba(0,0,0,.985)';d.fillRect(0,0,w,h);d.globalCompositeOperation='destination-out';
+  for(const id in P){const q=P[id];if(q.out)continue;const R=(id==me?190:90)*z,x=w/2+(q.x-p.x)*z,y=h/2+(q.y-p.y)*z,a=q.a||0;
+    let gr=d.createRadialGradient(x,y,0,x,y,R);gr.addColorStop(0,'#000');gr.addColorStop(1,'rgba(0,0,0,0)');d.fillStyle=gr;d.beginPath();d.moveTo(x,y);d.arc(x,y,R,a-.5,a+.5);d.fill();
+    gr=d.createRadialGradient(x,y,0,x,y,R*.3);gr.addColorStop(0,'rgba(0,0,0,.9)');gr.addColorStop(1,'rgba(0,0,0,0)');d.fillStyle=gr;d.beginPath();d.arc(x,y,R*.3,0,7);d.fill()}
   g.setTransform(1,0,0,1,0,0);g.drawImage(dk,0,0);
-  const dist=Math.hypot(p.x-M.x,p.y-M.y); // red pulse when the monster is near
+  const vg=g.createRadialGradient(w/2,h/2,h*.3,w/2,h/2,h*.95);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.75)');g.fillStyle=vg;g.fillRect(0,0,w,h);
   if(dist<220&&st=='play'){g.fillStyle=`rgba(170,0,0,${(1-dist/220)*.45*(.6+.4*Math.sin(t/110))})`;g.fillRect(0,0,w,h)}
+  if(flash>0){g.fillStyle='rgba(255,220,150,.12)';g.fillRect(0,0,w,h)}
   if(tid!==null){g.strokeStyle='rgba(232,224,207,.35)';g.lineWidth=2;g.beginPath();g.arc(jo.x,jo.y,50,0,7);g.stroke()}
+  if(boss.on&&st=='play'){g.fillStyle='#2a0707';g.fillRect(w/2-130,h-22,260,10);g.fillStyle='#c4160e';g.fillRect(w/2-130,h-22,260*Math.max(0,boss.hp/boss.max),10)}
+  // minimap
+  const m=$('mm').getContext('2d'),S=120,cx=mz==1?W/2:p.x,cy=mz==1?W/2:p.y,sc=S/(W/mz),mp=(x,y)=>[(x-cx)*sc+S/2,(y-cy)*sc+S/2];
+  m.clearRect(0,0,S,S);m.fillStyle='rgba(5,10,6,.85)';m.fillRect(0,0,S,S);m.fillStyle='#14281a';
+  trees.forEach(r=>{const[x,y]=mp(r.x,r.y);m.fillRect(x-1,y-1,2,2)});
+  const dot=(o,c,r)=>{const[x,y]=mp(o.x,o.y);m.fillStyle=c;m.beginPath();m.arc(x,y,r,0,7);m.fill()};
+  keys.forEach(k=>{if(!k.got)dot(k,'#e0a93b',2.5)});crates.forEach(c=>dot(c,'#e07b3b',2.5));
+  for(const id in P)if(!P[id].out)dot(P[id],id==me?'#9fd3ff':'#f0a868',3);
+  if(dist<350||boss.on)dot(M,'#ff2a1a',4);
   const n=keys.filter(k=>k.got).length;
-  let msg=st=='win'?'🎉 نجوتم من الغابة! (اضغط للإعادة)':st=='lose'?'💀 أمسك بكم الوحش (اضغط للإعادة)':p.out?'أمسك بك الوحش… شاهد فريقك':n==KEYS?'البوابة مفتوحة! اذهبوا إلى الزاوية اليمنى السفلى':'';
-  $('hud').innerHTML=`الغرفة: <b>${room}</b> &nbsp; 🔑 ${n}/${KEYS} &nbsp; 👥 ${Object.keys(P).length}<br>${msg}`;
+  let msg=st=='win'?'🎉 هزمتم الوحش! (اضغط للإعادة)':st=='lose'?'💀 أمسك بكم الوحش (اضغط للإعادة)':p.out?'أمسك بك الوحش… شاهد فريقك':boss.on?`المرحلة ${boss.ph||1}/3 — التقطوا 🔫 وأطلقوا على الوحش!`:'';
+  $('hud').innerHTML=`الغرفة: <b>${room}</b> &nbsp; 🔑 ${n}/${KEYS} &nbsp; 👥 ${Object.keys(P).length} &nbsp; 🔫 ${p.am|0}<br>${msg}`;
+  if(js>0){g.fillStyle=`rgba(${js>.5?'120,0,0':'0,0,0'},1)`;g.fillRect(0,0,w,h);face(g,w/2+(Math.random()-.5)*14,h*.42,Math.min(w,h)/38*(1.2-js*.3),t/1000)}
 }
 
 function loop(t){const dt=Math.min((t-last)/1000,.05);last=t;update(dt);draw();requestAnimationFrame(loop)}
