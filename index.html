@@ -143,9 +143,64 @@ function ui(){
   if(i!=uiS){uiS=i;ic.style.display=i?'block':'none'}
   if(m){$('lbn').textContent='اللاعبون: '+Object.keys(P).length+' / '+want+(host?'':' — بانتظار المضيف…');$('lbh').style.display=host?'':'none'}
 }
-const CAP=[[0,'كنا ننقل كيانًا غريبًا في حافلة مغلقة، في طريق مظلم…'],[4,'ثم بدأ الصندوق يهتز…'],[6.2,'وانقلبت الحافلة في الغابة.'],[8.5,'الكيان تحرر… وهو الآن يريد قتلنا.']];
-function introDraw(s){
+const CAP=[
+[0,'','مستودع مهجور… لا أحد يعلم ما جرى فيه.'],
+[3,'د. رائد','الحالة الأخيرة لم تنجُ. غطّوها مع البقية.'],
+[6.5,'المساعدة','دكتور… إنه يهمس من القفص مجددًا. يقول أسماءهم.'],
+[10,'د. رائد','لا تسمّوه إنسانًا. كان «رقم ١٣»… وصار أنجح تجاربنا.'],
+[13,'الكيان','أرجوكم… أريد أن أعود… كان لي وجه.'],
+[16,'د. رائد','الإدارة تريده الليلة. حمّلوه على الشاحنة.'],
+[19,'المساعدة','والمستودع؟'],
+[20.3,'د. رائد','سنحرقه. لا شهود… ولا جثث.'],
+[22,'د. رائد','أغلقوا الباب، وإن صرخ فلا تردّوا عليه.'],
+[24,'','بعد ساعة… على طريق الغابة.'],
+[25,'السائق','الحمولة هادئة جدًا… هذا لا يريحني.'],
+[27,'زميله','قالوا: لا تفتحوا الصندوق مهما سمعتم.'],
+[29,'','ثم بدأ الصندوق يهتز…'],
+[30.2,'السائق','الصندوق ينفتح! تمسّكوا!'],
+[31.4,'','وانقلبت الشاحنة في الغابة.'],
+[33.5,'','الكيان تحرر… وهو الآن يريد قتلنا.'],
+[35.6,'الكيان','كلكم شركاؤهم… لن أنسى أحدًا.']];
+function cage(x,cx,by,cw,ch,s,r){
+  x.save();x.translate((Math.random()-.5)*r,(Math.random()-.5)*r);
+  face(x,cx,by-ch*.62,ch/125,s);
+  x.strokeStyle='#4a4d52';x.lineWidth=Math.max(2,cw*.02);
+  for(let i=0;i<=7;i++){const b=cx-cw/2+cw*i/7;x.beginPath();x.moveTo(b,by-ch);x.lineTo(b,by);x.stroke()}
+  x.strokeRect(cx-cw/2,by-ch,cw,ch);x.restore()}
+const sci=(x,p,y,k)=>{x.fillStyle='#8f9591';x.fillRect(p-k*.13,y-k*.62,k*.26,k*.62);x.fillStyle='#4a1410';x.fillRect(p-k*.05,y-k*.45,k*.1,k*.12);x.fillStyle='#c9ab8c';x.beginPath();x.arc(p,y-k*.72,k*.09,0,7);x.fill()};
+function lab(x,w,h,s){ // abandoned warehouse: blood, covered bodies, scientists, caged monster
+  x.fillStyle='#090a0c';x.fillRect(0,0,w,h);x.fillStyle='#14161a';x.fillRect(0,h*.68,w,h*.32);
+  x.fillStyle='#0f1114';for(let i=0;i<5;i++)x.fillRect(w*.04+i*w*.22,0,w*.03,h*.68);
+  const f=Math.sin(s*29)>.8?.4:1,L=x.createRadialGradient(w*.45,0,0,w*.45,0,h*.95);L.addColorStop(0,`rgba(255,225,150,${.3*f})`);L.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=L;x.fillRect(0,0,w,h);
+  x.fillStyle='#ffe9a8';x.fillRect(w*.45-5,0,10,h*.03);
+  x.fillStyle='#3d0a08';[[.15,.76,.06],[.42,.82,.09],[.66,.74,.05],[.3,.7,.04]].forEach(b=>{x.beginPath();x.ellipse(w*b[0],h*b[1],w*b[2],w*b[2]*.28,0,0,7);x.fill()});
+  [[.1,.74],[.24,.79],[.38,.74]].forEach(b=>{const p=w*b[0],y=h*b[1];x.fillStyle='#8a867b';x.beginPath();x.ellipse(p,y,w*.07,h*.045,0,0,7);x.fill();x.beginPath();x.arc(p-w*.06,y-h*.012,h*.03,0,7);x.fill();x.fillStyle='#5c1410';x.beginPath();x.ellipse(p+w*.015,y,w*.02,h*.015,0,0,7);x.fill()});
+  sci(x,w*.52,h*.8,h*.42);sci(x,w*.6,h*.8,h*.4);
+  cage(x,w*.8,h*.78,w*.2,h*.5,s,s>13&&s<16?9:1.5)}
+function dock(x,w,h,s){ // cage loaded onto the truck, warehouse burning behind
+  x.fillStyle='#06080b';x.fillRect(0,0,w,h);x.fillStyle='#101317';x.fillRect(0,h*.72,w,h*.28);
+  const a=s>20?Math.min(.45,(s-20)*.15)*(.8+Math.random()*.2):0,G=x.createRadialGradient(0,h*.6,0,0,h*.6,w*.7);G.addColorStop(0,`rgba(255,110,30,${a})`);G.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=G;x.fillRect(0,0,w,h);
+  x.fillStyle='#2a3b2a';x.fillRect(w*.5,h*.2,w*.48,h*.52);x.fillStyle='#07090a';x.fillRect(w*.52,h*.24,w*.44,h*.46);
+  x.fillStyle='#111';[.58,.9].forEach(c=>{x.beginPath();x.arc(w*c,h*.74,h*.06,0,7);x.fill()});x.fillStyle='#b3261e';x.fillRect(w*.5,h*.62,w*.015,h*.05);
+  const q=clamp((s-16.6)/4.4,0,1);sci(x,w*.1,h*.8,h*.42);
+  cage(x,w*(.18+.54*q),h*.68,w*.2,h*.4,s,q<1?3:1.5);
+  x.fillStyle='#233023';x.fillRect(w*.52,h*.24,w*.44,h*.46*clamp((s-21.4)/.9,0,1))}
+function introDraw(S){
   const w=ic.width=innerWidth,h=ic.height=innerHeight,x=ix;
+  if(S<16)lab(x,w,h,S);else if(S<24)dock(x,w,h,S);else if(S<25){x.fillStyle='#030406';x.fillRect(0,0,w,h)}else road(S-25,w,h,x);
+  const fa=Math.max(0,1-Math.abs(S-16)/.5,S>23&&S<24?S-23:0);if(fa>0){x.fillStyle=`rgba(0,0,0,${fa})`;x.fillRect(0,0,w,h)}
+  let cp=null;for(const c of CAP)if(S>=c[0])cp=c;
+  if(cp){const fs=Math.max(16,h*.045);x.fillStyle='rgba(0,0,0,.6)';x.fillRect(0,h*.83,w,h*.17);x.direction='rtl';x.textAlign='center';
+    if(cp[1]){x.fillStyle='#e0a93b';x.font='700 '+fs*.85+'px "Noto Naskh Arabic",serif';x.fillText(cp[1]+':',w/2,h*.88)}
+    x.fillStyle='#e8e0cf';x.font=fs+'px "Noto Naskh Arabic",serif';x.fillText(cp[2],w/2,h*.95)}
+  x.fillStyle='rgba(232,224,207,.4)';x.font='14px sans-serif';x.textAlign='center';x.fillText('اضغط للتخطي',w/2,h*.06);
+  const cue=(i,t,f)=>{if(S>t&&!ie[i]){ie[i]=1;f()}};
+  cue(0,.2,()=>tone(45,6,'sawtooth',.15));
+  cue(3,13,()=>{noise(.7,.9,500);tone(80,.5,'square',.4,35)});
+  cue(4,22.2,()=>{thud(1);noise(.4,.8,1500)});
+  cue(1,31.1,()=>{noise(1.2,1,900);tone(70,1,'square',.5,25)});
+  cue(2,34,()=>{tone(900,1.2,'sawtooth',.4,250);noise(1,.6,5000)})}
+function road(s,w,h,x){
   x.fillStyle='#030406';x.fillRect(0,0,w,h);
   x.fillStyle='#07100a';for(let i=0;i<8;i++){const tx=((i*w/6-s*(s<6.2?200:0))%(w*1.3)+w*1.3)%(w*1.3)-w*.15;x.fillRect(tx,h*.25,w*.04,h*.75)}
   x.fillStyle='#0a0a0c';x.fillRect(0,h*.7,w,h*.3);
@@ -162,12 +217,6 @@ function introDraw(s){
   if(s>4&&s<6.2&&Math.random()<.4){x.fillStyle='rgba(180,0,0,.25)';x.fillRect(0,0,w,h)}
   if(s>6.1&&s<6.5){x.fillStyle=`rgba(255,255,255,${1-(s-6.1)/.4})`;x.fillRect(0,0,w,h)}
   if(s>8){const a=Math.min(1,(s-8)/2.5);x.fillStyle=`rgba(0,0,0,${a})`;x.fillRect(0,0,w,h);face(x,w/2,h*.42,Math.min(w,h)/60*(.6+a*.9),s)}
-  let cap='';for(const c of CAP)if(s>=c[0])cap=c[1];
-  x.direction='rtl';x.textAlign='center';x.fillStyle='#e8e0cf';x.font=Math.max(18,h*.05)+'px "Noto Naskh Arabic",serif';x.fillText(cap,w/2,h*.92);
-  x.fillStyle='rgba(232,224,207,.4)';x.font='14px sans-serif';x.fillText('اضغط للتخطي',w/2,h*.06);
-  if(s>.2&&!ie[0]){ie[0]=1;tone(45,6,'sawtooth',.15)}
-  if(s>6.1&&!ie[1]){ie[1]=1;noise(1.2,1,900);tone(70,1,'square',.5,25)}
-  if(s>9&&!ie[2]){ie[2]=1;tone(900,1.2,'sawtooth',.4,250);noise(1,.6,5000)}
 }
 
 function goLandscape(){initAudio(); // fullscreen + landscape lock (Android Chrome); other browsers fall back to the rotate message
@@ -249,7 +298,7 @@ function update(dt){
   if(st=='play'&&!p.out&&dist<100&&cd<=0){scare();cd=30}
   if(p.out&&!wasOut)scare();wasOut=p.out;
   if(boss.on&&!bs){bs=true;scare()}
-  if(host&&st=='lobby'&&Object.keys(P).length>=want)startGame();if(host&&st=='intro'){introT+=dt;if(introT>12)st='play'}if(host)sim(dt);
+  if(host&&st=='lobby'&&Object.keys(P).length>=want)startGame();if(host&&st=='intro'){introT+=dt;if(introT>38)st='play'}if(host)sim(dt);
   net+=dt;
   if(net>.066){net=0;
     if(host)conns.forEach(c=>c.open&&c.send({t:'s',P,M,k:keys.map(k=>k.got),st,cr:crates,B:boss,want}));
