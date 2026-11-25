@@ -23,6 +23,8 @@ input{width:6em;text-align:center;letter-spacing:.2em;text-transform:uppercase}
 #mm{position:fixed;top:64px;left:10px;width:120px;height:120px;border:1px solid #4a2a26;z-index:3;pointer-events:none}
 #zb{position:fixed;top:64px;left:138px;z-index:3;display:flex;flex-direction:column;gap:6px}
 #zb button{padding:0;width:38px;height:38px;font-size:1.3rem;background:#1a0f0e;opacity:.85}
+#c{z-index:1}
+#mm{right:auto;bottom:auto}
 #rot b{font-size:3.2rem}
 @media (orientation:portrait){#rot{display:flex}}
 @media (orientation:landscape) and (max-height:520px){#menu{gap:8px;padding:10px 24px}h1{font-size:2rem}p{font-size:.95rem;line-height:1.4}button,input{padding:8px 18px}}
@@ -34,12 +36,13 @@ input{width:6em;text-align:center;letter-spacing:.2em;text-transform:uppercase}
 <div id="hud"></div>
 <div id="menu">
   <h1>الغابة المظلمة</h1>
-  <p>اجمعوا ٥ مفاتيح 🔑 والتقطوا الأسلحة 🔫، ثم واجهوا الوحش معًا في معركة من ٣ مراحل. أطلقوا عليه حتى يسقط.</p>
+  <p>اجمعوا ٥ مفاتيح 🔑 والتقطوا الأسلحة 🔫، ثم واجهوا الوحش معًا في معركة من ٣ مراحل. اسحب بإصبعك على <b>يسار</b> الشاشة للمشي، وعلى <b>يمينها</b> للنظر.</p>
   <button onclick="goLandscape();hostGame()">إنشاء غرفة</button>
   <div class="row"><input id="ci" maxlength="4" placeholder="الكود" aria-label="كود الغرفة"><button class="alt" onclick="goLandscape();joinGame()">انضمام</button></div>
 </div>
 <canvas id="mm" width="120" height="120"></canvas><div id="zb"><button onclick="mz=Math.min(4,mz*2)">+</button><button onclick="mz=Math.max(1,mz/2)">−</button></div><button id="fb" aria-label="إطلاق">🔫</button>
 <div id="rot"><b>📱↻</b>أدر جوالك بالعرض للعب</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 const $=id=>document.getElementById(id),cv=$('c'),g=cv.getContext('2d'),dk=document.createElement('canvas'),d=dk.getContext('2d');
@@ -76,7 +79,7 @@ const gt=document.createElement('canvas');gt.width=gt.height=128;let gp;
  for(let i=0;i<30;i++){c.fillStyle='rgba(40,30,20,.5)';c.fillRect(Math.random()*128,Math.random()*128,3,2)}
  gp=g.createPattern(gt,'repeat')}
 function face(c,x,y,s,t){ // the monster: spiked head, flesh face, screaming mouth, dark hunched body
-  c.save();c.translate(x,y);c.scale(s,s);c.strokeStyle='#1a0d0d';c.lineWidth=1.2;
+  c.save();c.translate(x,y);c.scale(s,s);c.strokeStyle='#4a2a2a';c.lineWidth=1.2;
   for(let i=0;i<14;i++){const a=i/14*6.28+.3,l=26+(i%3)*7;c.beginPath();c.moveTo(Math.cos(a)*14,Math.sin(a)*15-4);c.lineTo(Math.cos(a)*l,Math.sin(a)*l-4);c.stroke()}
   c.fillStyle='#0b0708';c.beginPath();c.ellipse(0,26,18,22,0,0,7);c.fill();
   const q=c.createRadialGradient(-4,-8,2,0,0,20);q.addColorStop(0,'#a33a33');q.addColorStop(1,'#4a1212');c.fillStyle=q;
@@ -93,6 +96,36 @@ const fb=$('fb');fb.onpointerdown=()=>fire=true;fb.onpointerup=fb.onpointerleave
 function shoot(id,a){const q=P[id];if(!q||q.out||q.am<1)return;q.am--;
   const dx=M.x-q.x,dy=M.y-q.y,pr=dx*Math.cos(a)+dy*Math.sin(a),pe=Math.abs(-dx*Math.sin(a)+dy*Math.cos(a));
   if(pr>0&&pr<300&&pe<(boss.on?28:18)){if(boss.on)boss.hp-=8;else stun=1.2}}
+
+// ---------- 3D (three.js): 2D world coords x,y map to ground x,z ----------
+let walk=false,lk=0;
+const U=.04,R=new THREE.WebGLRenderer({antialias:false});
+R.domElement.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:0';document.body.prepend(R.domElement);
+const scn=new THREE.Scene(),cam=new THREE.PerspectiveCamera(72,1,.1,60),fl3=new THREE.SpotLight(0xfff0d0,1.8,28,.5,.6,1);
+scn.fog=new THREE.FogExp2(0x030503,.1);scn.background=new THREE.Color(0x030503);
+scn.add(cam,new THREE.AmbientLight(0x1a2a1a,.6));cam.add(fl3,fl3.target);fl3.target.position.set(0,0,-1);
+const gtex=new THREE.CanvasTexture(gt);gtex.wrapS=gtex.wrapT=THREE.RepeatWrapping;gtex.repeat.set(24,24);
+const gm=new THREE.Mesh(new THREE.PlaneGeometry(W*U,W*U),new THREE.MeshStandardMaterial({map:gtex,roughness:1}));
+gm.rotation.x=-Math.PI/2;gm.position.set(W*U/2,0,W*U/2);scn.add(gm);
+{const tg=new THREE.CylinderGeometry(.18,.28,7,6),cg=new THREE.ConeGeometry(1.6,5,7),tm=new THREE.MeshStandardMaterial({color:0x2a1d12,roughness:1}),cmat=new THREE.MeshStandardMaterial({color:0x14301a,roughness:1});
+ trees.forEach(r=>{const k=r.r/22,a=new THREE.Mesh(tg,tm),b=new THREE.Mesh(cg,cmat);a.position.set(r.x*U,3.5,r.y*U);a.scale.set(k,1,k);b.position.set(r.x*U,6,r.y*U);b.scale.set(k,1,k);scn.add(a,b)})}
+const km=keys.map(k=>{const m=new THREE.Mesh(new THREE.OctahedronGeometry(.28),new THREE.MeshBasicMaterial({color:0xe0a93b}));m.position.set(k.x*U,1,k.y*U);scn.add(m);return m});
+const mc=document.createElement('canvas');mc.width=mc.height=256;face(mc.getContext('2d'),128,100,2.6,0);
+const crm=[],pm={},mon=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(mc)}));scn.add(mon);
+function render3d(p,t,dist){
+  const bo=boss.on;scn.fog.color.setHex(bo?0x140303:0x030503);scn.background.setHex(bo?0x140303:0x030503);
+  const sh=st=='play'?Math.max(0,1-dist/250)*.05:0;
+  cam.position.set(p.x*U+(Math.random()-.5)*sh,(p.out?.4:1.6)+(walk?Math.sin(t/140)*.06:0),p.y*U+(Math.random()-.5)*sh);
+  cam.rotation.set(0,-p.a-Math.PI/2,p.out?.9:0);fl3.visible=!p.out;
+  km.forEach((m,i)=>{m.visible=!keys[i].got;m.rotation.y=t/500});
+  while(crm.length<crates.length){const m=new THREE.Mesh(new THREE.BoxGeometry(.5,.3,.25),new THREE.MeshBasicMaterial({color:0xe07b3b}));scn.add(m);crm.push(m)}
+  crm.forEach((m,i)=>{const c=crates[i];m.visible=!!c;if(c)m.position.set(c.x*U,.2,c.y*U)});
+  for(const id in P){if(id==me)continue;const q=P[id];let m=pm[id];
+    if(!m){m=pm[id]=new THREE.Group();const b=new THREE.Mesh(new THREE.CylinderGeometry(.22,.28,1.1,8),new THREE.MeshStandardMaterial({color:0x5a3a23,emissive:0x2a1608})),hd=new THREE.Mesh(new THREE.SphereGeometry(.17,8,8),new THREE.MeshStandardMaterial({color:0xd8b898,emissive:0x302418}));b.position.y=.55;hd.position.y=1.28;m.add(b,hd);scn.add(m)}
+    m.position.set(q.x*U,q.out?.15:0,q.y*U);m.rotation.set(0,-(q.a||0)-Math.PI/2,q.out?1.5:0)}
+  for(const id in pm)if(!P[id]){scn.remove(pm[id]);delete pm[id]}
+  const ms=bo?3.2+(boss.ph||1)*.7:2.6;mon.scale.set(ms,ms,1);mon.position.set(M.x*U,ms/2+Math.sin(t/300)*.08,M.y*U);
+  R.render(scn,cam)}
 
 function goLandscape(){initAudio(); // fullscreen + landscape lock (Android Chrome); other browsers fall back to the rotate message
   try{const e=document.documentElement,f=e.requestFullscreen||e.webkitRequestFullscreen;
@@ -156,14 +189,16 @@ function update(dt){
   let mv=false;
   if(st=='play'&&!p.out){
     const k=(...a)=>a.some(c=>kb[c]);
-    let dx=joy.x+k('KeyD','ArrowRight')-k('KeyA','ArrowLeft'),dy=joy.y+k('KeyS','ArrowDown')-k('KeyW','ArrowUp');
-    const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}
-    if(l>.15){mv=true;p.a=Math.atan2(dy,dx)}
+    let sx=joy.x+k('KeyD')-k('KeyA'),sf=-joy.y+k('KeyW','ArrowUp')-k('KeyS','ArrowDown');
+    p.a+=(k('ArrowRight')-k('ArrowLeft'))*2*dt+lk;lk=0;
+    const l=Math.hypot(sx,sf);if(l>1){sx/=l;sf/=l}
+    if(l>.15)mv=true;
+    const dx=Math.cos(p.a)*sf-Math.sin(p.a)*sx,dy=Math.sin(p.a)*sf+Math.cos(p.a)*sx;
     p.x=clamp(p.x+dx*130*dt,8,W-8);p.y=clamp(p.y+dy*130*dt,8,W-8);
     trees.forEach(t=>{const a=p.x-t.x,b=p.y-t.y,h=Math.hypot(a,b),m=t.r+8;if(h<m&&h>0){p.x=t.x+a/h*m;p.y=t.y+b/h*m}});
     fcd-=dt;if((fire||kb.Space)&&fcd<=0&&p.am>0){fcd=.35;flash=.08;shot();if(host)shoot(me,p.a);else if(conns[0]&&conns[0].open)conns[0].send({t:'f',a:p.a})}
   }
-  if(mv){stepT-=dt;if(stepT<=0){stepT=.4;step()}}
+  walk=mv;if(mv){stepT-=dt;if(stepT<=0){stepT=.4;step()}}
   const dist=Math.hypot(p.x-M.x,p.y-M.y);
   mst-=dt;if(mst<=0&&dist<350&&st=='play'){mst=dist<150?.35:.6;thud(1-dist/350)}
   hb-=dt;if(hb<=0&&dist<400&&st=='play'){hb=.3+dist/400*.9;beat(1-dist/400)}
@@ -181,23 +216,14 @@ function update(dt){
 
 let ow=0,oh=0;
 function draw(){
-  const w=innerWidth,h=innerHeight;if(w!=ow||h!=oh){ow=cv.width=dk.width=w;oh=cv.height=dk.height=h}
-  const p=P[me]||{x:110,y:110,a:0,am:0},z=Math.min(w,h)/420,t=performance.now(),dist=Math.hypot(p.x-M.x,p.y-M.y),sh=st=='play'?Math.max(0,1-dist/250)*3:0;
-  g.setTransform(1,0,0,1,0,0);g.fillStyle='#050805';g.fillRect(0,0,w,h);
-  g.setTransform(z,0,0,z,w/2-p.x*z+(Math.random()-.5)*sh*z,h/2-p.y*z+(Math.random()-.5)*sh*z);
-  g.fillStyle=gp;g.fillRect(0,0,W,W);
-  trees.forEach(r=>g.drawImage(ts,r.x-r.r*1.7,r.y-r.r*1.7,r.r*3.4,r.r*3.4));
-  g.font='16px serif';crates.forEach(c=>g.fillText('🔫',c.x-8,c.y+6));keys.forEach(k=>{if(!k.got)g.fillText('🔑',k.x-8,k.y+6)});
-  for(const id in P)person(P[id],id==me);
-  face(g,M.x,M.y,boss.on?1.4+(boss.ph||1)*.25:.8,t/1000);
-  d.setTransform(1,0,0,1,0,0);d.globalCompositeOperation='source-over';d.fillStyle='rgba(0,0,0,.985)';d.fillRect(0,0,w,h);d.globalCompositeOperation='destination-out';
-  for(const id in P){const q=P[id];if(q.out)continue;const R=(id==me?190:90)*z,x=w/2+(q.x-p.x)*z,y=h/2+(q.y-p.y)*z,a=q.a||0;
-    let gr=d.createRadialGradient(x,y,0,x,y,R);gr.addColorStop(0,'#000');gr.addColorStop(1,'rgba(0,0,0,0)');d.fillStyle=gr;d.beginPath();d.moveTo(x,y);d.arc(x,y,R,a-.5,a+.5);d.fill();
-    gr=d.createRadialGradient(x,y,0,x,y,R*.3);gr.addColorStop(0,'rgba(0,0,0,.9)');gr.addColorStop(1,'rgba(0,0,0,0)');d.fillStyle=gr;d.beginPath();d.arc(x,y,R*.3,0,7);d.fill()}
-  g.setTransform(1,0,0,1,0,0);g.drawImage(dk,0,0);
-  const vg=g.createRadialGradient(w/2,h/2,h*.3,w/2,h/2,h*.95);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.75)');g.fillStyle=vg;g.fillRect(0,0,w,h);
+  const w=innerWidth,h=innerHeight;if(w!=ow||h!=oh){ow=cv.width=w;oh=cv.height=h;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
+  const p=P[me]||{x:110,y:110,a:0,am:0},t=performance.now(),dist=Math.hypot(p.x-M.x,p.y-M.y);
+  render3d(p,t,dist);
+  g.clearRect(0,0,w,h);
+  const vg=g.createRadialGradient(w/2,h/2,h*.3,w/2,h/2,h*.95);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.7)');g.fillStyle=vg;g.fillRect(0,0,w,h);
   if(dist<220&&st=='play'){g.fillStyle=`rgba(170,0,0,${(1-dist/220)*.45*(.6+.4*Math.sin(t/110))})`;g.fillRect(0,0,w,h)}
   if(flash>0){g.fillStyle='rgba(255,220,150,.12)';g.fillRect(0,0,w,h)}
+  g.fillStyle='rgba(232,224,207,.6)';g.fillRect(w/2-1,h/2-1,2,2);
   if(tid!==null){g.strokeStyle='rgba(232,224,207,.35)';g.lineWidth=2;g.beginPath();g.arc(jo.x,jo.y,50,0,7);g.stroke()}
   if(boss.on&&st=='play'){g.fillStyle='#2a0707';g.fillRect(w/2-130,h-22,260,10);g.fillStyle='#c4160e';g.fillRect(w/2-130,h-22,260*Math.max(0,boss.hp/boss.max),10)}
   // minimap
@@ -216,11 +242,11 @@ function draw(){
 
 function loop(t){const dt=Math.min((t-last)/1000,.05);last=t;update(dt);draw();requestAnimationFrame(loop)}
 
-// controls: touch joystick (anywhere on screen) + keyboard for desktop
-let tid=null,jo={x:0,y:0};
-cv.addEventListener('touchstart',e=>{const t=e.changedTouches[0];if(tid===null){tid=t.identifier;jo={x:t.clientX,y:t.clientY}}});
-cv.addEventListener('touchmove',e=>{for(const t of e.changedTouches)if(t.identifier===tid){joy.x=clamp((t.clientX-jo.x)/50,-1,1);joy.y=clamp((t.clientY-jo.y)/50,-1,1)}});
-const end=e=>{for(const t of e.changedTouches)if(t.identifier===tid){tid=null;joy.x=joy.y=0}};
+// controls: left half = walk joystick, right half = look around
+let tid=null,jo={x:0,y:0},lid=null,lx=0;
+cv.addEventListener('touchstart',e=>{for(const t of e.changedTouches){if(t.clientX<innerWidth/2){if(tid===null){tid=t.identifier;jo={x:t.clientX,y:t.clientY}}}else if(lid===null){lid=t.identifier;lx=t.clientX}}});
+cv.addEventListener('touchmove',e=>{for(const t of e.changedTouches){if(t.identifier===tid){joy.x=clamp((t.clientX-jo.x)/50,-1,1);joy.y=clamp((t.clientY-jo.y)/50,-1,1)}else if(t.identifier===lid){lk+=(t.clientX-lx)*.006;lx=t.clientX}}});
+const end=e=>{for(const t of e.changedTouches){if(t.identifier===tid){tid=null;joy.x=joy.y=0}if(t.identifier===lid)lid=null}};
 cv.addEventListener('touchend',end);cv.addEventListener('touchcancel',end);
 cv.addEventListener('click',()=>{if(st!='play')location.reload()});
 addEventListener('keydown',e=>kb[e.code]=true);addEventListener('keyup',e=>kb[e.code]=false);
